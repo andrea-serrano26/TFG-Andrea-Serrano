@@ -1,0 +1,17 @@
+{
+    "channel_names": {
+        "0": "CT"
+    },
+    "labels": {
+        "background": 0,
+        "kidney": 1,
+        "tumor": 2
+    },
+    "numTraining": 62,
+    "file_ending": ".nii.gz",
+    "name": "Kidney",
+    "description": "Kidney and tumor segmentation from CT scans",
+    "reference": "Hospital Ram\u00f3n y Cajal",
+    "licence": "My licence",
+    "release": "1.0"
+}
