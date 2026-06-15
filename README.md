@@ -1,5 +1,7 @@
 # TFG-Andrea-Serrano
 Diseño y desarrollo de una aplicación para la caracterización radiómica de masas renales en imágenes de tomografía computarizada
 
-<img width="1145" height="717" alt="image" src="https://github.com/user-attachments/assets/a059bfa3-6965-44b6-b8cc-af2629498bcd" />
+<img width="680" height="260" alt="renalsight_logo" src="https://github.com/user-attachments/assets/010a2b0f-a92c-4d5b-979b-b3426dbb13c9" />
+
+
 
