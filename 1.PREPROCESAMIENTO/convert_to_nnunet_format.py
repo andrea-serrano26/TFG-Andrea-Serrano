@@ -7,21 +7,6 @@ FORMATO nnU-Net:
 - Labels: [CASE_ID].nii.gz
 - JSON con metadata
 
-ESTRUCTURA SALIDA:
-nnUNet_raw/Dataset001_Kidney/
-├── imagesTr/
-│   ├── kidney_001_0000.nii.gz
-│   ├── kidney_002_0000.nii.gz
-│   └── ...
-├── labelsTr/
-│   ├── kidney_001.nii.gz
-│   ├── kidney_002.nii.gz
-│   └── ...
-├── imagesTs/ (opcional)
-└── dataset.json
-
-USO:
-    python convert_to_nnunet_format.py
 """
 
 import os
@@ -55,7 +40,7 @@ def create_dataset_json(output_folder, num_training, modality="CT"):
         "file_ending": ".nii.gz",
         "name": "Kidney",
         "description": "Kidney and tumor segmentation from CT scans",
-        "reference": "Your institution/paper",
+        "reference": "Hospital Ramon y Cajal",
         "licence": "Your licence",
         "release": "1.0"
     }
@@ -94,8 +79,8 @@ def convert_to_nnunet(
     dataset_folder = os.path.join(output_base, f"Dataset{dataset_id}_{dataset_name}")
     images_tr = os.path.join(dataset_folder, "imagesTr")
     labels_tr = os.path.join(dataset_folder, "labelsTr")
-    images_ts = os.path.join(dataset_folder, "imagesTs")  # Opcional
-    labels_ts = os.path.join(dataset_folder, "labelsTs")  # Opcional
+    images_ts = os.path.join(dataset_folder, "imagesTs")  
+    labels_ts = os.path.join(dataset_folder, "labelsTs")  
     
     for folder in [images_tr, labels_tr, images_ts, labels_ts]:
         os.makedirs(folder, exist_ok=True)

@@ -2,11 +2,8 @@
 """
 unify_kidney_values.py
 
-Script para convertir máscaras de riñón donde left=1 y right=2 
-a una máscara unificada donde ambos riñones = 1
+Script para convertir máscaras de riñón donde left=1 y right=2 a una máscara unificada donde ambos riñones = 1
 
-Uso:
-    python3 unify_kidney_value.py --input_dir ./kidney_raw --output_dir ./kidney_masks
 """
 
 import nibabel as nib
@@ -73,20 +70,7 @@ def unify_kidney_values(input_path, output_path, verbose=True):
 def main():
     parser = argparse.ArgumentParser(
         description='Unifica valores de riñones izquierdo y derecho a un solo valor (1)',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Ejemplo de uso:
-    python unify_kidney_values.py --input_dir ./kidney_raw --output_dir ./kidney_masks
-
-Antes:
-    0 = Background
-    1 = Riñón izquierdo
-    2 = Riñón derecho
-
-Después:
-    0 = Background
-    1 = Ambos riñones
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     parser.add_argument('--input_dir', type=str, required=True,
@@ -163,7 +147,7 @@ Después:
     if error_count > 0:
         print(f" Archivos con errores: {error_count}")
     
-    print(f"\n📂 Máscaras unificadas guardadas en: {args.output_dir}")
+    print(f"\n Máscaras unificadas guardadas en: {args.output_dir}")
     print("="*70 + "\n")
     
     return 0 if error_count == 0 else 1

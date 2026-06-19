@@ -1,28 +1,19 @@
-# Las imágenes TC están en formato .nrrd, que es bueno pero no compatible con redes neuronales.
+# Las imágenes TC están en formato .nrrd -> no compatible con redes neuronales.
 # Hay que transformar .nrrd a .nii.gz (NIfTI) para poder entrenar el modelo de segmentación automática.
 
-# Previo a aplicar el algoritmo, ejecutar en bash:
-# pip install SimpleITK
 
 import os
 import SimpleITK as sitk
 from pathlib import Path
 
-# --- CONFIGURACIÓN ---
-# Carpeta con las imágenes TC (.nrrd). Esta ruta es donde tenía guardadas los TC usados para la segmentación. Después de cambiar el formato, los devolví a la 
-#memoria externa
+# CONFIGURACIÓN 
 IMAGES_FOLDER = "/Users/andrea/Downloads/UNIVERSIDAD/TFG/Casos" 
-
-# Carpeta con las segmentaciones (.nrrd). Esta ruta es donde tenía guardadas las segmentaciones usadas. Después de cambiar el formato, las devolví a la  memoria 
-# externa
 LABELS_FOLDER = "/Users/andrea/Downloads/UNIVERSIDAD/TFG/Segmentaciones"
-
-# Carpeta de salida (se crearán imagesTr y labelsTr)
 OUTPUT_FOLDER = "/Users/andrea/Downloads/UNIVERSIDAD/TFG/Dataset_entrenamiento_nifti"
 
 def convert_and_organize(images_dir, labels_dir, output_dir):
     """
-    Convierte NRRD a NIfTI y organiza los datos en la estructura estándar nnU-Net / MONAI.
+    Convierte NRRD a NIfTI y organiza los datos en la estructura estándar nnU-Net.
     """
 
     # Crear estructura estándar

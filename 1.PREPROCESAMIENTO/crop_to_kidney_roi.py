@@ -6,26 +6,8 @@ FUNCIÓN:
 - Encuentra bounding box de riñón+tumor en la máscara
 - Centra ROI en riñones
 - Aplica mismo crop a imagen CT y máscara
-- Guarda volúmenes reducidos (60-80% menos)
+- Guarda volúmenes reducidos
 
-VENTAJAS:
-- Red busca solo en región relevante
-- Entrenamiento 2-3× más rápido
-- Mejora Dice 5-10% típicamente
-- Elimina información irrelevante (pulmones, piernas, etc.)
-
-USO:
-    # Procesar todos los casos
-    python crop_to_kidney_roi.py
-    
-    # Procesar con margen custom
-    python crop_to_kidney_roi.py --margin 40
-    
-    # Solo ver estadísticas sin procesar
-    python crop_to_kidney_roi.py --dry-run
-    
-    # Visualizar casos cropped
-    python crop_to_kidney_roi.py --visualize
 """
 
 import os
@@ -163,7 +145,7 @@ def process_case(image_path, label_path, output_dir, margin=30, visualize=False)
     try:
         bbox = find_kidney_bbox(label_data, margin=margin)
     except ValueError as e:
-        print(f"   ⚠️  {os.path.basename(image_path)}: {e}")
+        print(f"     {os.path.basename(image_path)}: {e}")
         return None
     
     # Aplicar crop
@@ -308,19 +290,19 @@ Ejemplos:
     image_files = sorted(input_dir.glob('*_image.nii.gz'))
     
     if len(image_files) == 0:
-        print(f"❌ No se encontraron imágenes en {input_dir}")
+        print(f" No se encontraron imágenes en {input_dir}")
         return
     
     print("\n" + "="*70)
     print("CROPPING AUTOMÁTICO CENTRADO EN RIÑONES")
     print("="*70)
-    print(f"📂 Input:  {args.input}")
-    print(f"📂 Output: {args.output}")
-    print(f"📏 Margen: {args.margin} voxels")
-    print(f"📊 Casos encontrados: {len(image_files)}")
+    print(f" Input:  {args.input}")
+    print(f" Output: {args.output}")
+    print(f" Margen: {args.margin} voxels")
+    print(f" Casos encontrados: {len(image_files)}")
     
     if args.dry_run:
-        print("\n⚠️  DRY RUN - Solo mostrando estadísticas")
+        print("\n  DRY RUN - Solo mostrando estadísticas")
     
     # Crear directorio de salida
     if not args.dry_run:
@@ -338,7 +320,7 @@ Ejemplos:
         label_path = str(img_path).replace('_image.nii.gz', '_label.nii.gz')
         
         if not os.path.exists(label_path):
-            print(f"\n⚠️  Máscara no encontrada: {label_path}")
+            print(f"\n Máscara no encontrada: {label_path}")
             continue
         
         # Procesar
@@ -383,18 +365,18 @@ Ejemplos:
         original_shapes = [s['original_shape'] for s in stats]
         cropped_shapes = [s['cropped_shape'] for s in stats]
         
-        print(f"\n📊 Casos procesados: {len(stats)}")
-        print(f"\n📐 Tamaño original promedio:")
+        print(f"\n Casos procesados: {len(stats)}")
+        print(f"\n Tamaño original promedio:")
         print(f"   {np.mean([s[0] for s in original_shapes]):.0f} × "
               f"{np.mean([s[1] for s in original_shapes]):.0f} × "
               f"{np.mean([s[2] for s in original_shapes]):.0f}")
         
-        print(f"\n📐 Tamaño cropped promedio:")
+        print(f"\n Tamaño cropped promedio:")
         print(f"   {np.mean([s[0] for s in cropped_shapes]):.0f} × "
               f"{np.mean([s[1] for s in cropped_shapes]):.0f} × "
               f"{np.mean([s[2] for s in cropped_shapes]):.0f}")
         
-        print(f"\n📉 Reducción de tamaño:")
+        print(f"\n Reducción de tamaño:")
         print(f"   Promedio: {np.mean(reductions):.1f}%")
         print(f"   Mínima:   {np.min(reductions):.1f}%")
         print(f"   Máxima:   {np.max(reductions):.1f}%")
@@ -413,24 +395,17 @@ Ejemplos:
         print("\n" + "="*70)
         
         if not args.dry_run:
-            print(f"✅ Datos cropped guardados en: {args.output}/")
+            print(f" Datos cropped guardados en: {args.output}/")
             
             if args.visualize:
-                print(f"📊 Visualizaciones guardadas en: {args.output}/visualizations/")
-            
-            print("\n🚀 PRÓXIMOS PASOS:")
-            print("   1. Verificar datos cropped:")
-            print(f"      ls -lh {args.output}/")
-            print("   2. Entrenar modelo con datos cropped:")
-            print(f"      python train.py --data {args.output}")
-            print("   3. Comparar Dice antes/después del crop")
+                print(f" Visualizaciones guardadas en: {args.output}/visualizations/")
         else:
-            print("\n⚠️  Para procesar datos, ejecutar sin --dry-run")
+            print("\n  Para procesar datos, ejecutar sin --dry-run")
         
         print("="*70 + "\n")
     
     else:
-        print("\n❌ No se procesó ningún caso")
+        print("\n No se procesó ningún caso")
 
 
 if __name__ == "__main__":

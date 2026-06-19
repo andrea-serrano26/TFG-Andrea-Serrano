@@ -4,9 +4,6 @@ combine_kidney_tumor.py
 
 Script para combinar máscaras de riñón (TotalSegmentator) y tumor en formato 3 clases.
 
-Uso:
-    python3 combine_kidney_tumor.py --kidney_dir ./kidney_masks --tumor_dir ./data_original --output_dir ./data
-
 Output format:
     0 = Background
     1 = Kidney (parénquima renal sin tumor)
@@ -56,7 +53,7 @@ def resample_mask_to_reference(mask_data, mask_affine, ref_affine, ref_shape, or
 
 def combine_masks(kidney_path, tumor_path, output_path, verbose=True):
     """
-    Combina máscaras de riñón (TotalSegmentator) y tumor en formato 3 clases
+    Combina máscaras de riñón y tumor en formato 3 clases
     
     Args:
         kidney_path: Ruta a la máscara del riñón
@@ -157,17 +154,7 @@ def combine_masks(kidney_path, tumor_path, output_path, verbose=True):
 def main():
     parser = argparse.ArgumentParser(
         description='Combina máscaras de riñón (TotalSegmentator) y tumor en formato 3 clases',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Ejemplos de uso:
-  python combine_kidney_tumor.py --kidney_dir ./kidney_masks --tumor_dir ./data_original --output_dir ./data
-  python combine_kidney_tumor.py --kidney_dir ./ts_output --tumor_dir ./old_data --output_dir ./new_data --quiet
-
-Formato de salida:
-  0 = Background
-  1 = Kidney (parénquima renal sin tumor)  
-  2 = Tumor
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     parser.add_argument('--kidney_dir', type=str, required=True,
