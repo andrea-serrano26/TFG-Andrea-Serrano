@@ -1,6 +1,4 @@
 """
-nnUNet Segmentation Metrics Calculator
-======================================
 Calcula métricas completas de segmentación para resultados 2D y 3D de nnUNet.
 
 Métricas calculadas por caso y de media:
@@ -9,12 +7,6 @@ Métricas calculadas por caso y de media:
   - Volumen GT (mL), Volumen predicho (mL), Error Vol (%) (del JSON + espaciado NIfTI)
   - HD95, HDmax, SSIM (requiere cargar NIfTIs)
 
-Uso:
-    python3 compute_metrics_nnunet.py \
-        --json_3d /home/ubuntu/nnUNet_results/Dataset002_Kidney/predictions_3d/summary.json \
-        --json_2d /home/ubuntu/nnUNet_results/Dataset002_Kidney/predictions_2d/summary.json \
-        --labels_dir /home/ubuntu/nnUNet_raw/Dataset002_Kidney/labelsTs \
-        --output results_metrics_nnunet.xlsx
 """
 
 import argparse
@@ -29,9 +21,9 @@ import pandas as pd
 warnings.filterwarnings("ignore")
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Helpers de métricas sobre NIfTI
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 def _get_surface(binary_mask: np.ndarray) -> np.ndarray:
     """Devuelve los vóxeles de superficie (erosión morfológica)."""
@@ -86,7 +78,7 @@ def compute_ssim(pred_mask: np.ndarray, ref_mask: np.ndarray) -> float:
     p = pred_mask.astype(np.float32)
     r = ref_mask.astype(np.float32)
  
-    # Para volúmenes 3-D usamos win_size pequeño si el patch es diminuto
+    # Para volúmenes 3D usamos win_size pequeño si el patch es diminuto
     min_side = min(p.shape)
     win_size = min(7, min_side) if min_side >= 3 else 3
     if win_size % 2 == 0:
@@ -100,9 +92,9 @@ def compute_ssim(pred_mask: np.ndarray, ref_mask: np.ndarray) -> float:
     return float(val)
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Métricas derivadas del JSON (sin cargar NIfTIs)
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 def metrics_from_counts(tp: float, fp: float, tn: float, fn: float,
                         n_ref: float, n_pred: float) -> dict:
@@ -117,9 +109,9 @@ def metrics_from_counts(tp: float, fp: float, tn: float, fn: float,
     }
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Procesado de cada caso
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 def process_case(case: dict, labels_dir: str, compute_spatial: bool = True) -> list:
     """
@@ -140,7 +132,7 @@ def process_case(case: dict, labels_dir: str, compute_spatial: bool = True) -> l
     ref_file  = case["reference_file"]
     case_name = Path(pred_file).stem.replace(".nii", "")
  
-    # ── Carga de NIfTIs ──────────────────────────────────────────────────────
+    # Carga de NIfTIs 
     pred_data, ref_data, spacing, voxel_vol_ml = None, None, None, None
  
     if compute_spatial:
@@ -161,14 +153,14 @@ def process_case(case: dict, labels_dir: str, compute_spatial: bool = True) -> l
                 ref_data   = np.round(ref_nib.get_fdata()).astype(np.int16)
                 zooms      = ref_nib.header.get_zooms()[:3]          # mm
                 spacing    = tuple(float(z) for z in zooms)
-                voxel_vol_ml = float(np.prod(spacing)) / 1000.0      # mm³ → mL
+                voxel_vol_ml = float(np.prod(spacing)) / 1000.0      # mm3 -> mL
             except Exception as e:
                 print(f"  [WARN] No se pudo cargar NIfTI para {case_name}: {e}")
         else:
             missing = pred_path if not os.path.exists(pred_path) else ref_path
             print(f"  [WARN] Archivo no encontrado: {missing}")
  
-    # ── Métricas por etiqueta ────────────────────────────────────────────────
+    # Métricas por etiqueta
     rows = []
     for label_str, m in case["metrics"].items():
         label = int(label_str)
@@ -212,9 +204,9 @@ def process_case(case: dict, labels_dir: str, compute_spatial: bool = True) -> l
     return rows
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Procesado completo de un JSON
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 def process_json(json_path: str, labels_dir: str,
                  model_tag: str, compute_spatial: bool = True) -> pd.DataFrame:
@@ -247,9 +239,9 @@ def process_json(json_path: str, labels_dir: str,
     return df
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Tabla resumen (medias por modelo y etiqueta)
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 METRIC_COLS = ["Dice", "IoU", "Precision", "Specificity",
                "Vol_GT_mL", "Vol_Pred_mL", "Vol_Error_%", "HD95", "HDmax", "SSIM"]
@@ -270,9 +262,9 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
     return summary[ordered]
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Exportación a Excel
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 def to_excel(df_per_case: pd.DataFrame, df_summary: pd.DataFrame,
              output_path: str) -> None:
@@ -316,7 +308,7 @@ def to_excel(df_per_case: pd.DataFrame, df_summary: pd.DataFrame,
  
                 ws.freeze_panes = "A2"
  
-        print(f"\n✓ Excel guardado: {output_path}")
+        print(f"\n Excel guardado: {output_path}")
  
     except ImportError:
         csv_path = output_path.replace(".xlsx", "_per_case.csv")
@@ -326,9 +318,9 @@ def to_excel(df_per_case: pd.DataFrame, df_summary: pd.DataFrame,
         print(f"\n CSVs guardados:\n  {csv_path}\n  {sum_path}")
  
  
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # CLI
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
  
 def parse_args():
     p = argparse.ArgumentParser(
@@ -384,7 +376,7 @@ def main():
  
     df_summary = build_summary(df_all)
  
-    # ── Impresión en consola ─────────────────────────────────────────────────
+    # Impresión en consola 
     print("\n" + "═"*70)
     print("  RESUMEN DE MÉTRICAS (media ± std)")
     print("═"*70)
@@ -394,7 +386,7 @@ def main():
     print(df_summary[summary_cols].to_string(index=False))
     print()
  
-    # ── Comparativa 3D vs 2D ─────────────────────────────────────────────────
+    # Comparativa 3D vs 2D 
     if args.json_3d and args.json_2d:
         print("═"*70)
         print("  DIFERENCIA 3D − 2D (media, por etiqueta)")
