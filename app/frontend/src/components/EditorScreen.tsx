@@ -505,10 +505,6 @@ export function EditorScreen({ sessionId, patientData, onSaveMask }: any) {
           setDimensions(data.dimensions);
           if (data.spacing) setSpacing(data.spacing);
         }
-        fetch(
-          `http://localhost:8000/api/prefetch/${sessionId}/${axialSlice}/${sagitalSlice}/${coronalSlice}`,
-          { signal: ctrl.signal }
-        ).catch(() => {});
       } catch (e: any) { if (e.name !== 'AbortError') console.error(e); }
     }, DEBOUNCE_MS);
     

@@ -1,0 +1,25 @@
+import { addProvider } from '../metaData';
+let state = {};
+const metadataProvider = {
+    add: (imageId, payload) => {
+        metadataProvider.addRaw(imageId, {
+            ...payload,
+            metadata: structuredClone(payload.metadata),
+        });
+    },
+    addRaw: (imageId, payload) => {
+        const type = payload.type;
+        if (!state[imageId]) {
+            state[imageId] = {};
+        }
+        state[imageId][type] = payload.metadata;
+    },
+    get: (type, imageId) => {
+        return state[imageId]?.[type];
+    },
+    clear: () => {
+        state = {};
+    },
+};
+addProvider(metadataProvider.get);
+export default metadataProvider;

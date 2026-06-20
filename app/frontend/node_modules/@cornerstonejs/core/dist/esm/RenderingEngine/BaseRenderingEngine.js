@@ -1,0 +1,355 @@
+import Events from '../enums/Events';
+import renderingEngineCache from './renderingEngineCache';
+import eventTarget from '../eventTarget';
+import uuidv4 from '../utilities/uuidv4';
+import triggerEvent from '../utilities/triggerEvent';
+import ViewportType from '../enums/ViewportType';
+import BaseVolumeViewport from './BaseVolumeViewport';
+import StackViewport from './StackViewport';
+import viewportTypeUsesCustomRenderingPipeline from './helpers/viewportTypeUsesCustomRenderingPipeline';
+import getOrCreateCanvas from './helpers/getOrCreateCanvas';
+import { getShouldUseCPURendering, isCornerstoneInitialized, getConfiguration, } from '../init';
+import viewportTypeToViewportClass from './helpers/viewportTypeToViewportClass';
+import { OrientationAxis } from '../enums';
+import { StatsOverlay } from './helpers/stats';
+export const VIEWPORT_MIN_SIZE = 2;
+class BaseRenderingEngine {
+    constructor(id) {
+        this._needsRender = new Set();
+        this._animationFrameSet = false;
+        this._animationFrameHandle = null;
+        this.renderFrameOfReference = (FrameOfReferenceUID) => {
+            const viewports = this._getViewportsAsArray();
+            const viewportIdsWithSameFrameOfReferenceUID = viewports.map((vp) => {
+                if (vp.getFrameOfReferenceUID() === FrameOfReferenceUID) {
+                    return vp.id;
+                }
+            });
+            this.renderViewports(viewportIdsWithSameFrameOfReferenceUID);
+        };
+        this.id = id ? id : uuidv4();
+        this.useCPURendering = getShouldUseCPURendering();
+        renderingEngineCache.set(this);
+        if (!isCornerstoneInitialized()) {
+            throw new Error('@cornerstonejs/core is not initialized, run init() first');
+        }
+        this._viewports = new Map();
+        this.hasBeenDestroyed = false;
+        const config = getConfiguration();
+        if (config?.debug?.statsOverlay) {
+            StatsOverlay.setup();
+        }
+    }
+    enableElement(viewportInputEntry) {
+        const viewportInput = this._normalizeViewportInputEntry(viewportInputEntry);
+        this._throwIfDestroyed();
+        const { element, viewportId } = viewportInput;
+        if (!element) {
+            throw new Error('No element provided');
+        }
+        const viewport = this.getViewport(viewportId);
+        if (viewport) {
+            this.disableElement(viewportId);
+        }
+        const { type } = viewportInput;
+        const viewportUsesCustomRenderingPipeline = viewportTypeUsesCustomRenderingPipeline(type);
+        if (!this.useCPURendering && !viewportUsesCustomRenderingPipeline) {
+            this.enableVTKjsDrivenViewport(viewportInput);
+        }
+        else {
+            this.addCustomViewport(viewportInput);
+        }
+        const canvas = getOrCreateCanvas(element);
+        const { background } = viewportInput.defaultOptions;
+        this.fillCanvasWithBackgroundColor(canvas, background);
+    }
+    disableElement(viewportId) {
+        this._throwIfDestroyed();
+        const viewport = this.getViewport(viewportId);
+        if (!viewport) {
+            console.warn(`viewport ${viewportId} does not exist`);
+            return;
+        }
+        this._resetViewport(viewport);
+        if (!viewportTypeUsesCustomRenderingPipeline(viewport.type) &&
+            !this.useCPURendering) {
+            if (this.offscreenMultiRenderWindow) {
+                this.offscreenMultiRenderWindow.removeRenderer(viewportId);
+            }
+        }
+        this._removeViewport(viewportId);
+        viewport.isDisabled = true;
+        this._needsRender.delete(viewportId);
+        const viewports = this.getViewports();
+        if (!viewports.length) {
+            this._clearAnimationFrame();
+        }
+    }
+    setViewports(publicViewportInputEntries) {
+        const viewportInputEntries = this._normalizeViewportInputEntries(publicViewportInputEntries);
+        this._throwIfDestroyed();
+        this._reset();
+        const vtkDrivenViewportInputEntries = [];
+        const customRenderingViewportInputEntries = [];
+        viewportInputEntries.forEach((vpie) => {
+            if (!this.useCPURendering &&
+                !viewportTypeUsesCustomRenderingPipeline(vpie.type)) {
+                vtkDrivenViewportInputEntries.push(vpie);
+            }
+            else {
+                customRenderingViewportInputEntries.push(vpie);
+            }
+        });
+        this.setVtkjsDrivenViewports(vtkDrivenViewportInputEntries);
+        this.setCustomViewports(customRenderingViewportInputEntries);
+        viewportInputEntries.forEach((vp) => {
+            const canvas = getOrCreateCanvas(vp.element);
+            const { background } = vp.defaultOptions;
+            this.fillCanvasWithBackgroundColor(canvas, background);
+        });
+    }
+    resize(immediate = true, keepCamera = true) {
+        this._throwIfDestroyed();
+        const viewports = this._getViewportsAsArray();
+        const vtkDrivenViewports = [];
+        const customRenderingViewports = [];
+        viewports.forEach((vpie) => {
+            if (!viewportTypeUsesCustomRenderingPipeline(vpie.type)) {
+                vtkDrivenViewports.push(vpie);
+            }
+            else {
+                customRenderingViewports.push(vpie);
+            }
+        });
+        if (vtkDrivenViewports.length) {
+            this._resizeVTKViewports(vtkDrivenViewports, keepCamera, immediate);
+        }
+        if (customRenderingViewports.length) {
+            this._resizeUsingCustomResizeHandler(customRenderingViewports, keepCamera, immediate);
+        }
+    }
+    getViewport(viewportId) {
+        return this._viewports?.get(viewportId);
+    }
+    getViewports() {
+        this._throwIfDestroyed();
+        return this._getViewportsAsArray();
+    }
+    getStackViewport(viewportId) {
+        this._throwIfDestroyed();
+        const viewport = this.getViewport(viewportId);
+        if (!viewport) {
+            throw new Error(`Viewport with Id ${viewportId} does not exist`);
+        }
+        if (!(viewport instanceof StackViewport)) {
+            throw new Error(`Viewport with Id ${viewportId} is not a StackViewport.`);
+        }
+        return viewport;
+    }
+    getStackViewports() {
+        this._throwIfDestroyed();
+        const viewports = this.getViewports();
+        return viewports.filter((vp) => vp instanceof StackViewport);
+    }
+    getVolumeViewports() {
+        this._throwIfDestroyed();
+        const viewports = this.getViewports();
+        const isVolumeViewport = (viewport) => {
+            return viewport instanceof BaseVolumeViewport;
+        };
+        return viewports.filter(isVolumeViewport);
+    }
+    render() {
+        const viewports = this.getViewports();
+        const viewportIds = viewports.map((vp) => vp.id);
+        this._setViewportsToBeRenderedNextFrame(viewportIds);
+    }
+    renderViewports(viewportIds) {
+        this._setViewportsToBeRenderedNextFrame(viewportIds);
+    }
+    renderViewport(viewportId) {
+        this._setViewportsToBeRenderedNextFrame([viewportId]);
+    }
+    destroy() {
+        if (this.hasBeenDestroyed) {
+            return;
+        }
+        StatsOverlay.cleanup();
+        if (!this.useCPURendering) {
+            const viewports = this._getViewportsAsArray();
+            viewports.forEach((vp) => {
+                if (this.offscreenMultiRenderWindow) {
+                    this.offscreenMultiRenderWindow.removeRenderer(vp.id);
+                }
+            });
+            if (this.offscreenMultiRenderWindow) {
+                this.offscreenMultiRenderWindow.delete();
+            }
+            delete this.offscreenMultiRenderWindow;
+        }
+        this._reset();
+        renderingEngineCache.delete(this.id);
+        this.hasBeenDestroyed = true;
+    }
+    fillCanvasWithBackgroundColor(canvas, backgroundColor) {
+        const ctx = canvas.getContext('2d');
+        let fillStyle;
+        if (backgroundColor) {
+            const rgb = backgroundColor.map((f) => Math.floor(255 * f));
+            fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        }
+        else {
+            fillStyle = 'black';
+        }
+        ctx.fillStyle = fillStyle;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    _normalizeViewportInputEntry(viewportInputEntry) {
+        const { type, defaultOptions } = viewportInputEntry;
+        let options = defaultOptions;
+        if (!options || Object.keys(options).length === 0) {
+            options = {
+                background: [0, 0, 0],
+                orientation: null,
+                displayArea: null,
+            };
+            if (type === ViewportType.ORTHOGRAPHIC) {
+                options = {
+                    ...options,
+                    orientation: OrientationAxis.AXIAL,
+                };
+            }
+        }
+        return {
+            ...viewportInputEntry,
+            defaultOptions: options,
+        };
+    }
+    _normalizeViewportInputEntries(viewportInputEntries) {
+        const normalizedViewportInputs = [];
+        viewportInputEntries.forEach((viewportInput) => {
+            normalizedViewportInputs.push(this._normalizeViewportInputEntry(viewportInput));
+        });
+        return normalizedViewportInputs;
+    }
+    _resizeUsingCustomResizeHandler(customRenderingViewports, keepCamera = true, immediate = true) {
+        customRenderingViewports.forEach((vp) => {
+            if (typeof vp.resize === 'function') {
+                vp.resize();
+            }
+        });
+        customRenderingViewports.forEach((vp) => {
+            const prevCamera = vp.getCamera();
+            vp.resetCamera();
+            if (keepCamera) {
+                vp.setCamera(prevCamera);
+            }
+        });
+        if (immediate) {
+            this.render();
+        }
+    }
+    _removeViewport(viewportId) {
+        const viewport = this.getViewport(viewportId);
+        if (!viewport) {
+            console.warn(`viewport ${viewportId} does not exist`);
+            return;
+        }
+        this._viewports.delete(viewportId);
+    }
+    addCustomViewport(viewportInputEntry) {
+        const { element, viewportId, type, defaultOptions } = viewportInputEntry;
+        element.tabIndex = -1;
+        const canvas = getOrCreateCanvas(element);
+        const { clientWidth, clientHeight } = canvas;
+        if (canvas.width !== clientWidth || canvas.height !== clientHeight) {
+            canvas.width = clientWidth;
+            canvas.height = clientHeight;
+        }
+        const viewportInput = {
+            id: viewportId,
+            renderingEngineId: this.id,
+            element,
+            type,
+            canvas,
+            sx: 0,
+            sy: 0,
+            sWidth: clientWidth,
+            sHeight: clientHeight,
+            defaultOptions: defaultOptions || {},
+        };
+        const ViewportType = viewportTypeToViewportClass[type];
+        const viewport = new ViewportType(viewportInput);
+        this._viewports.set(viewportId, viewport);
+        const eventDetail = {
+            element,
+            viewportId,
+            renderingEngineId: this.id,
+        };
+        triggerEvent(eventTarget, Events.ELEMENT_ENABLED, eventDetail);
+    }
+    getRenderer(viewportId) {
+        return this.offscreenMultiRenderWindow.getRenderer(viewportId);
+    }
+    getOffscreenMultiRenderWindow(viewportId) {
+        if (this.useCPURendering) {
+            throw new Error('Offscreen multi render window is not available when using CPU rendering.');
+        }
+        return this.offscreenMultiRenderWindow;
+    }
+    setCustomViewports(viewportInputEntries) {
+        viewportInputEntries.forEach((vpie) => {
+            this.addCustomViewport(vpie);
+        });
+    }
+    _getViewportsAsArray() {
+        return Array.from(this._viewports.values());
+    }
+    _setViewportsToBeRenderedNextFrame(viewportIds) {
+        viewportIds.forEach((viewportId) => {
+            this._needsRender.add(viewportId);
+        });
+        this._render();
+    }
+    _render() {
+        if (this._needsRender.size > 0 && !this._animationFrameSet) {
+            this._animationFrameHandle = window.requestAnimationFrame(this._renderFlaggedViewports);
+            this._animationFrameSet = true;
+        }
+    }
+    _resetViewport(viewport) {
+        const renderingEngineId = this.id;
+        const { element, canvas, id: viewportId } = viewport;
+        const eventDetail = {
+            element,
+            viewportId,
+            renderingEngineId,
+        };
+        viewport.removeWidgets();
+        triggerEvent(eventTarget, Events.ELEMENT_DISABLED, eventDetail);
+        element.removeAttribute('data-viewport-uid');
+        element.removeAttribute('data-rendering-engine-uid');
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    _clearAnimationFrame() {
+        window.cancelAnimationFrame(this._animationFrameHandle);
+        this._needsRender.clear();
+        this._animationFrameSet = false;
+        this._animationFrameHandle = null;
+    }
+    _reset() {
+        const viewports = this._getViewportsAsArray();
+        viewports.forEach((viewport) => {
+            this._resetViewport(viewport);
+        });
+        this._clearAnimationFrame();
+        this._viewports = new Map();
+    }
+    _throwIfDestroyed() {
+        if (this.hasBeenDestroyed) {
+            throw new Error('this.destroy() has been manually called to free up memory, can not longer use this instance. Instead make a new one.');
+        }
+    }
+}
+export default BaseRenderingEngine;

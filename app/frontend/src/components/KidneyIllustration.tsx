@@ -5,80 +5,52 @@ export function KidneyIllustration() {
       className="w-full h-full"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Riñón izquierdo */}
-      <g>
-        <path
-          d="M 60 70 C 45 70, 35 85, 35 100 C 35 115, 40 130, 50 140 C 55 145, 60 147, 65 145 C 70 143, 72 138, 72 130 L 72 110 C 72 102, 70 95, 65 90 C 62 87, 62 82, 65 78 C 68 74, 64 70, 60 70 Z"
-          fill="#ffcf26"
-          opacity="0.3"
-          stroke="#ffcf26"
-          strokeWidth="2"
-        />
-        <ellipse
-          cx="55"
-          cy="105"
-          rx="8"
-          ry="10"
-          fill="#ffcf26"
-          opacity="0.5"
-        />
-      </g>
-
-      {/* Riñón derecho con tumor */}
-      <g>
-        <path
-          d="M 140 70 C 155 70, 165 85, 165 100 C 165 115, 160 130, 150 140 C 145 145, 140 147, 135 145 C 130 143, 128 138, 128 130 L 128 110 C 128 102, 130 95, 135 90 C 138 87, 138 82, 135 78 C 132 74, 136 70, 140 70 Z"
-          fill="#ffcf26"
-          opacity="0.3"
-          stroke="#ffcf26"
-          strokeWidth="2"
-        />
-        <ellipse
-          cx="145"
-          cy="105"
-          rx="8"
-          ry="10"
-          fill="#ffcf26"
-          opacity="0.5"
-        />
-        {/* Tumor (bolita) */}
-        <circle
-          cx="155"
-          cy="95"
-          r="8"
-          fill="#38e8d7"
-          opacity="0.7"
-          stroke="#38e8d7"
-          strokeWidth="2"
-        />
-        <circle
-          cx="155"
-          cy="95"
-          r="4"
-          fill="#38e8d7"
-          opacity="0.9"
-        />
-      </g>
-
-      {/* Líneas de detalle anatómico */}
-      <line
-        x1="55"
-        y1="95"
-        x2="55"
-        y2="115"
-        stroke="#ffcf26"
-        strokeWidth="1.5"
-        opacity="0.6"
+      {/* Cuerpo del riñón */}
+      <path
+        d="M 100 20
+           C 140 20, 168 48, 168 90
+           C 168 132, 150 165, 118 178
+           C 107 182, 96 178, 88 168
+           C 78 156, 76 136, 80 112
+           C 84 88, 96 76, 96 56
+           C 96 36, 98 20, 100 20 Z"
+        fill="#1a2235"
+        stroke="#2dd4bf"
+        strokeWidth="2.5"
       />
-      <line
-        x1="145"
-        y1="95"
-        x2="145"
-        y2="115"
-        stroke="#ffcf26"
-        strokeWidth="1.5"
-        opacity="0.6"
+
+      {/* Seno renal (pelvis) */}
+      <path
+        d="M 104 58
+           C 120 58, 138 72, 138 92
+           C 138 112, 126 132, 108 136
+           C 98 138, 90 132, 88 120
+           C 86 106, 92 90, 98 80
+           C 102 72, 102 58, 104 58 Z"
+        fill="#0f1117"
+        stroke="#2dd4bf"
+        strokeWidth="1.2"
+        opacity="0.85"
       />
+
+      {/* Líneas de scan TC */}
+      <line x1="68"  y1="62"  x2="165" y2="62"  stroke="#2dd4bf" strokeWidth="0.8" opacity="0.3" />
+      <line x1="60"  y1="80"  x2="168" y2="80"  stroke="#2dd4bf" strokeWidth="0.8" opacity="0.3" />
+      <line x1="56"  y1="98"  x2="168" y2="98"  stroke="#2dd4bf" strokeWidth="0.8" opacity="0.3" />
+      <line x1="58"  y1="116" x2="166" y2="116" stroke="#2dd4bf" strokeWidth="0.8" opacity="0.3" />
+      <line x1="66"  y1="134" x2="160" y2="134" stroke="#2dd4bf" strokeWidth="0.8" opacity="0.3" />
+      <line x1="82"  y1="152" x2="148" y2="152" stroke="#2dd4bf" strokeWidth="0.8" opacity="0.3" />
+
+      {/* Halo del tumor */}
+      <circle cx="142" cy="82" r="18" fill="#ffcf26" opacity="0.13" stroke="#ffcf26" strokeWidth="1.2" />
+      {/* Tumor */}
+      <circle cx="142" cy="82" r="8"  fill="#ffcf26" opacity="0.9" />
+
+      {/* Crosshair */}
+      <line x1="142" y1="60"  x2="142" y2="72"  stroke="#ffcf26" strokeWidth="1.4" opacity="0.9" />
+      <line x1="142" y1="92"  x2="142" y2="104" stroke="#ffcf26" strokeWidth="1.4" opacity="0.9" />
+      <line x1="120" y1="82"  x2="132" y2="82"  stroke="#ffcf26" strokeWidth="1.4" opacity="0.9" />
+      <line x1="152" y1="82"  x2="164" y2="82"  stroke="#ffcf26" strokeWidth="1.4" opacity="0.9" />
     </svg>
   );
 }

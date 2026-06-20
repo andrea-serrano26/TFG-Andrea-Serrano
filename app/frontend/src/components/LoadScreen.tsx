@@ -152,35 +152,41 @@ export function LoadScreen({ onLoadDicom, onLoadSavedAnalysis }: LoadScreenProps
         className="sr-only"                                      // Oculto visualmente pero accesible para lectores de pantalla
       />
 
-      {/* Logo ETSIT - esquina superior izquierda */}
+      {/* Logo ETSIT - esquina inferior izquierda */}
       <img
         src={logoEtsit}
         alt="ETSIT UPM"
-        style={{ position: 'absolute', top: '16px', left: '24px', height: '100px' }}
+        style={{ position: 'absolute', bottom: '16px', left: '24px', height: '70px' }}
       />
 
-      {/* Logo Ramón y Cajal - esquina superior derecha */}
+      {/* Logo Ramón y Cajal - esquina inferior derecha */}
       <img
         src={logoRyC}
         alt="Hospital Ramón y Cajal"
-        style={{ position: 'absolute', top: '30px', right: '24px', height: '60px' }}
+        style={{ position: 'absolute', bottom: '30px', right: '24px', height: '40px' }}
       />
 
-      <div className="text-center space-y-8">
-        <div className="space-y-4">
-          <h1 className="text-[#ffcf26] tracking-wider text-5xl font-bold" style={{ fontSize: '3rem' }}>
-            SISTEMA DE ANÁLISIS RENAL
+      <div className="text-center" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '-2rem' }}>
+
+        {/* Logotipo RenalSight — grande y arriba */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
+          <h1 className="tracking-tight" style={{ fontSize: '5.5rem', lineHeight: 1.05, margin: 0 }}>
+            <span style={{ fontWeight: 300, color: '#e8eaf0' }}>Renal</span>
+            <span style={{ fontWeight: 700, color: '#2dd4bf' }}>Sight</span>
           </h1>
-          <p className="text-gray-300 text-lg" style={{ fontSize: '1.25rem' }}>
-            ANÁLISIS DE MALIGNIDAD DE MASAS RENALES
+          <div style={{
+            height: '1px',
+            background: 'linear-gradient(to right, transparent, #2dd4bf55, transparent)',
+            width: '360px',
+          }} />
+          <p style={{ color: '#6b7a99', letterSpacing: '0.22em', fontSize: '0.82rem', fontWeight: 400, margin: 0 }}>
+            RENAL MASS ANALYSIS SYSTEM
           </p>
         </div>
 
-        <div className="flex flex-col items-center gap-6 mt-12">
-          <div className="w-48 h-48 rounded-full border-2 border-[#ffcf26]/30 flex items-center justify-center overflow-hidden bg-black/50 p-4">
-            <KidneyIllustration />
-          </div>
-
+        <div className="flex flex-col items-center gap-6">
+          <KidneyIllustration />
+          
           <Button
             onClick={handleButtonClick}
             disabled={isUploading}

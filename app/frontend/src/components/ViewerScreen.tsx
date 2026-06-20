@@ -104,10 +104,6 @@ export function ViewerScreen({
         } else if (data.dimensions) {
           setDimensions(data.dimensions);
         }
-        fetch(
-          `http://localhost:8000/api/prefetch/${sessionId}/${axialSlice}/${sagitalSlice}/${coronalSlice}`,
-          { signal: ctrl.signal }
-        ).catch(() => {});
       } catch (e: any) { if (e.name !== 'AbortError') console.error(e); }
     }, DEBOUNCE_MS);
 

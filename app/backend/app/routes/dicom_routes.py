@@ -126,41 +126,17 @@ async def upload_dicom(files: list[UploadFile] = File(...)):
     except Exception as e:
         return {"success": False, "error": str(e)}
     
-
-@router.get("/api/prefetch/{session_id}/{slice_a}/{slice_s}/{slice_c}")
-async def prefetch_slices(session_id: str, slice_a: int, slice_s: int, slice_c: int):
+    
+@router.get("/api/volume-info/{session_id}")
+async def get_volume_info(session_id: str):
     """
-    Precarga en caché los slices adyacentes (±3) al slice actual.
-    El frontend lo llama en segundo plano; la respuesta es inmediata.
-    Hace que el scroll posterior sea instantáneo.
+    Devuelve dimensiones y spacing del volumen para configurar las vistas.
+    Soporta sesiones DICOM y NRRD.
     """
-    try:
-        volume, mask, spacing = _get_volume_mask_spacing(session_id)
-        if volume is None:
-            return {"success": True, "cached": 0}
- 
-        z, y, x = volume.shape
-        from concurrent.futures import ThreadPoolExecutor as TPE
- 
-        tasks = []
-        with TPE(max_workers=4) as ex:
-            for delta in (-3, -2, -1, 1, 2, 3):
-                ia  = dp_clamp(slice_a  + delta, z-1)
-                is_ = dp_clamp(slice_s  + delta, x-1)
-                ic  = dp_clamp(slice_c  + delta, y-1)
-                for sa, ss, sc in [(ia, slice_s, slice_c),
-                                   (slice_a, is_, slice_c),
-                                   (slice_a, slice_s, ic)]:
-                    tasks.append(ex.submit(
-                        render_views_parallel,
-                        session_id, volume, mask, spacing, sa, ss, sc
-                    ))
-            [t.result() for t in tasks]   # esperar que terminen (llenan caché)
- 
-        return {"success": True, "cached": len(tasks)}
- 
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    volume, _, spacing = _get_volume_mask_spacing(session_id)
+    z, y, x = volume.shape
+    return {"dimensions": {"z": z, "y": y, "x": x},
+            "spacing":    {"z": spacing[0], "y": spacing[1], "x": spacing[2]}}
 
 #--------------------------------------------------------------------------------------------------------------------------------
 
@@ -218,17 +194,6 @@ async def get_views(
         import traceback; print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
      
- 
-@router.get("/api/volume-info/{session_id}")
-async def get_volume_info(session_id: str):
-    """
-    Devuelve dimensiones y spacing del volumen para configurar las vistas.
-    Soporta sesiones DICOM y NRRD.
-    """
-    volume, _, spacing = _get_volume_mask_spacing(session_id)
-    z, y, x = volume.shape
-    return {"dimensions": {"z": z, "y": y, "x": x},
-            "spacing":    {"z": spacing[0], "y": spacing[1], "x": spacing[2]}}
  
 #--------------------------------------------------------------------------------------------------------------------------------
 
@@ -321,20 +286,6 @@ async def inference_status(session_id: str, ax: int = 0, sag: int = 0, cor: int 
     return info
  
 
-@router.post("/api/load-nifti-mask/{session_id}")
-async def load_nifti_mask_endpoint(session_id: str, file: UploadFile = File(...)):
-    try:
-        session_path = os.path.join(UPLOAD_DIR, session_id)
-        nifti_path   = os.path.join(session_path, "mask_pred.nii.gz")
-        with open(nifti_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
-        new_mask = load_nifti_mask(nifti_path, session_id)
-        memory_cache["mask"] = new_mask
-        memory_cache.pop("stl_cache", None)
-        return {"success": True, "voxels": int(new_mask.sum()), "shape": list(new_mask.shape)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
 
 @router.post("/api/edit-mask-slice/{session_id}")
 async def edit_mask_slice(session_id: str, payload: dict = Body(...)):
@@ -383,18 +334,6 @@ async def edit_mask_slice(session_id: str, payload: dict = Body(...)):
     except HTTPException: raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-
-@router.post("/api/update-mask/{session_id}")
-async def update_mask(session_id: str, mask_data: dict = Body(...)):
-    """
-    Actualiza la máscara completa en caché con los datos recibidos del frontend.
-    El payload debe contener la máscara completa en formato base64 o array numérico.
-    Después de actualizar la máscara, se invalida la caché de slices renderizados para que se vuelvan a 
-    generar con la nueva máscara al solicitar las vistas.
-    """
-    success = update_mask_from_edit(session_id, mask_data)
-    return {"status": "success" if success else "error"}
 
 
 @router.get("/api/save-mask/{session_id}")
@@ -455,6 +394,44 @@ async def get_mask_volume(session_id: str):
 #--------------------------------------------------------------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------------------------------------------------------------
+# ENDPOINTS DE MALLADO 3D
+
+@router.get("/api/get-3d-model/{session_id}")
+async def get_3d_model(session_id: str):
+    try:
+        if memory_cache["session_id"] != session_id:
+            raise HTTPException(status_code=404, detail="Sesión no encontrada")
+
+        mask    = memory_cache.get("mask")
+        spacing = memory_cache.get("spacing", (1.0, 1.0, 1.0))
+
+        # TumorViewer3D detecta blob.size < 200 -> estado 'empty', sin reintentar.
+        _EMPTY_STL = b'\x00' * 80 + b'\x00\x00\x00\x00'
+
+        n_tumor = int((mask == 2).sum()) if mask is not None else 0
+        if n_tumor == 0:
+            return Response(content=_EMPTY_STL, media_type="application/octet-stream",
+                            headers={"Content-Disposition": f"inline; filename=tumor_{session_id}.stl"})
+
+        cached_stl = memory_cache.get("stl_cache")
+        if cached_stl is None:
+            # Pasar solo los vóxeles de tumor (clase 2) al generador de malla
+            tumor_mask = (mask == 2).astype(np.uint8)
+            stl_bytes  = await asyncio.to_thread(generate_mesh_from_mask, tumor_mask, spacing)
+            memory_cache["stl_cache"] = stl_bytes
+        else:
+            stl_bytes = cached_stl
+
+        return Response(content=stl_bytes, media_type="application/octet-stream",
+                        headers={"Content-Disposition": f"inline; filename=tumor_{session_id}.stl"})
+    except HTTPException: raise
+    except Exception as e:
+        import traceback; print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+#--------------------------------------------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------------------------------------------------
 # ENDPOINTS DE ANÁLISIS RADIÓMICO
 
 @router.post("/api/analyze-tumor/{session_id}")
@@ -502,45 +479,6 @@ async def analyze_tumor_endpoint(session_id: str):
 #--------------------------------------------------------------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------------------------------------------------------------
-# ENDPOINTS DE MALLADO 3D
-
-@router.get("/api/get-3d-model/{session_id}")
-async def get_3d_model(session_id: str):
-    try:
-        if memory_cache["session_id"] != session_id:
-            raise HTTPException(status_code=404, detail="Sesión no encontrada")
-
-        mask    = memory_cache.get("mask")
-        spacing = memory_cache.get("spacing", (1.0, 1.0, 1.0))
-
-        # STL binario mínimo válido (80B header + 4B con nº triángulos = 0).
-        # TumorViewer3D detecta blob.size < 200 → estado 'empty', sin reintentar.
-        _EMPTY_STL = b'\x00' * 80 + b'\x00\x00\x00\x00'
-
-        n_tumor = int((mask == 2).sum()) if mask is not None else 0
-        if n_tumor == 0:
-            return Response(content=_EMPTY_STL, media_type="application/octet-stream",
-                            headers={"Content-Disposition": f"inline; filename=tumor_{session_id}.stl"})
-
-        cached_stl = memory_cache.get("stl_cache")
-        if cached_stl is None:
-            # Pasar solo los vóxeles de tumor (clase 2) al generador de malla
-            tumor_mask = (mask == 2).astype(np.uint8)
-            stl_bytes  = await asyncio.to_thread(generate_mesh_from_mask, tumor_mask, spacing)
-            memory_cache["stl_cache"] = stl_bytes
-        else:
-            stl_bytes = cached_stl
-
-        return Response(content=stl_bytes, media_type="application/octet-stream",
-                        headers={"Content-Disposition": f"inline; filename=tumor_{session_id}.stl"})
-    except HTTPException: raise
-    except Exception as e:
-        import traceback; print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
-
-#--------------------------------------------------------------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------------------------------------------------------------
 # ENDPOINTS DE GESTIÓN DE SESIONES Y BASE DE DATOS
 
 @router.post("/api/save-analysis")
@@ -559,7 +497,7 @@ async def save_analysis_endpoint(payload: dict = Body(...)):
         patient_name = payload.get("patient_name", "")
         patient_sex = payload.get("patient_sex", "")
         acquisition_date = payload.get("acquisition_date", "")
-        analysis_result = payload.get("analysis_result")   # ← resultados del análisis
+        analysis_result = payload.get("analysis_result")   # resultados del análisis
 
         if not patient_id or not session_id or not report_html:
             raise HTTPException(status_code=400, detail="Faltan campos obligatorios")
@@ -588,7 +526,7 @@ async def save_analysis_endpoint(payload: dict = Body(...)):
         if not success:
             raise HTTPException(status_code=500, detail="Error guardando en BD")
 
-        # Borrar carpeta de la sesión: ya está todo en BD
+        # Borrar carpeta de la sesión -> ya está todo en BD
         session_path = os.path.join(UPLOAD_DIR, session_id)
         if os.path.isdir(session_path):
             try:

@@ -1,0 +1,11 @@
+import type { ColormapPublic, ColormapRegistration } from '../types';
+declare function registerColormap(colormap: ColormapRegistration): void;
+declare function getColormap(name: any): any;
+declare function getColormapNames(): any[];
+declare function findMatchingColormap(rgbPoints: any, actor: any): ColormapPublic | null;
+export declare function setColorMapTransferFunctionForVolumeActor(volumeInfo: any): void;
+export declare function updateOpacity(volumeActor: any, newOpacity: any): void;
+export declare function updateThreshold(volumeActor: any, newThreshold: any): void;
+declare function getThresholdValue(volumeActor: any): any;
+declare function getMaxOpacity(volumeActor: any): number;
+export { getColormap, getColormapNames, registerColormap, findMatchingColormap, getThresholdValue, getMaxOpacity, };
