@@ -1,23 +1,42 @@
-# Framework web
-fastapi>=0.109.0
-uvicorn[standard]>=0.27.0
-python-multipart>=0.0.6
+#-------------------------------------------------------------
+# RENALSIGHT — DEPENDENCIAS DEL BACKEND
+#-------------------------------------------------------------
 
-# Procesamiento DICOM
-pydicom>=2.4.4
-nibabel>=5.2.0
-pynrrd>=1.0.0
+# --- Framework web ---
+fastapi==0.129.0
+uvicorn[standard]==0.40.0
+python-multipart==0.0.22
 
-# Procesamiento de imágenes y arrays
-numpy>=1.26.0
-Pillow>=10.2.0
-scikit-image>=0.22.0
-scipy>=1.12.0
-opencv-python-headless>=4.9.0  
+# --- Aplicación de escritorio ---
+pywebview==6.1
 
-# Generación de mallas 3D
-trimesh>=4.1.0
+# --- Procesamiento DICOM / NIfTI ---
+pydicom==3.0.1
+nibabel==5.3.3
+python-gdcm==3.2.6          # backend de descompresión para pydicom (transfer syntaxes comprimidas)
 
-# Utilidades
-python-dotenv>=1.0.0
+# --- Procesamiento de imágenes y arrays ---
+numpy==2.4.2
+pillow==12.1.1
+scikit-image==0.26.0
+scipy==1.17.0
 
+# --- Deep learning (segmentación) ---
+torch==2.12.0
+torchvision==0.27.0
+
+# --- Localización de riñones ---
+TotalSegmentator==2.13.0
+
+# --- Generación de mallas 3D ---
+trimesh==4.11.2
+
+# --- Radiómica y Machine Learning ---
+simpleitk==2.5.3
+pyradiomics @ git+https://github.com/Radiomics/pyradiomics.git@8ed579383b44806651c463d5e691f3b2b57522ab
+scikit-learn==1.8.0
+joblib==1.5.3
+pandas==3.0.0
+
+# --- Utilidades ---
+python-dotenv==1.2.1
